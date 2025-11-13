@@ -5,12 +5,14 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Sistema\GestionController;
 use App\Http\Controllers\Maestros\CarreraController;
 use App\Http\Controllers\Maestros\MateriaController;
+use App\Http\Controllers\Maestros\SemestreController;
 use App\Http\Controllers\Maestros\AulaController;
 use App\Http\Controllers\Maestros\GrupoController;
 use App\Http\Controllers\Usuarios\DocenteController;
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Maestros\TipoAulaController;
 use App\Http\Controllers\Usuarios\CargaMasivaController;
+use App\Http\Controllers\Maestros\MateriaGrupoController;
 use App\Http\Controllers\Horarios\AsignacionDocenteController;
 use App\Http\Controllers\Horarios\DiaController;
 use App\Http\Controllers\Horarios\BloqueHorarioController;
@@ -50,6 +52,55 @@ Route::prefix('/auth')->group(function () {
     });
 });
 
+// ========== RUTAS PARA ADMINISTRADOR Y COORDINADOR (DEBEN IR ANTES DE SOLO ADMIN) ==========
+Route::middleware(['auth:sanctum', 'role:Administrador,Coordinador'])->group(function () {
+    
+    // Dropdowns que Admin y Coordinador necesitan
+    Route::get('/materias/select', [MateriaController::class, 'getMateriasForSelect']);
+    Route::get('/semestres/select', [SemestreController::class, 'paraSelect']);
+    
+    // Grupos - CRUD (Admin y Coordinador)
+    Route::prefix('/grupos')->group(function () {
+        Route::get('/', [GrupoController::class, 'index']);
+        Route::post('/', [GrupoController::class, 'store']);
+        Route::get('/select', [GrupoController::class, 'getGruposForSelect']);
+        Route::get('/{id}', [GrupoController::class, 'show']);
+        Route::put('/{id}', [GrupoController::class, 'update']);
+        Route::delete('/{id}', [GrupoController::class, 'destroy']);
+        Route::post('/{id}/reactivar', [GrupoController::class, 'reactivar']);
+    });
+
+    // Asignación de Docentes a Materia-Grupo (Admin y Coordinador)
+    Route::prefix('/asignaciones-docente')->group(function () {
+        Route::get('/', [AsignacionDocenteController::class, 'index']); // Listar asignaciones
+        Route::post('/', [AsignacionDocenteController::class, 'store']); // Crear asignación
+        Route::get('/{id}', [AsignacionDocenteController::class, 'show']); // Ver detalle de asignación
+        Route::put('/{id}', [AsignacionDocenteController::class, 'update']); // Actualizar horas asignadas
+        Route::delete('/{id}', [AsignacionDocenteController::class, 'destroy']); // Desactivar asignación
+    });
+
+    // CRUD de Materia-Grupos (Admin y Coordinador)
+    Route::prefix('/materia-grupos')->group(function () {
+        Route::get('/', [MateriaGrupoController::class, 'index']); // Listar todos
+        Route::post('/', [MateriaGrupoController::class, 'store']); // Crear nuevo
+        Route::get('/select', [MateriaGrupoController::class, 'paraSelectActivos']); // Para dropdown (sin docente asignado)
+        Route::get('/{id}', [MateriaGrupoController::class, 'show']); // Ver detalle
+        Route::put('/{id}', [MateriaGrupoController::class, 'update']); // Actualizar
+        Route::delete('/{id}', [MateriaGrupoController::class, 'destroy']); // Desactivar
+        Route::post('/{id}/reactivar', [MateriaGrupoController::class, 'reactivar']); // Reactivar
+    });
+    
+    // Docentes - Operaciones de Lectura (Admin y Coordinador para asignaciones)
+    Route::prefix('/docentes')->group(function () {
+        Route::get('/', [DocenteController::class, 'index']);
+        Route::get('/select', [DocenteController::class, 'getDocentesForSelect']);
+        Route::get('/{id}', [DocenteController::class, 'show']); // /{id} debe ir al final
+    });
+    
+    // Carga horaria de docentes (Admin y Coordinador)
+    Route::get('/docentes/{cod_docente}/carga-horaria', [AsignacionDocenteController::class, 'cargaHoraria']);
+});
+
 // ========== RUTAS PARA ADMINISTRADOR ==========
 Route::middleware(['auth:sanctum', 'role:Administrador'])->group(function () {
     
@@ -78,9 +129,9 @@ Route::middleware(['auth:sanctum', 'role:Administrador'])->group(function () {
     // Materias - CRUD Completo (Solo Admin)
     Route::prefix('/materias')->group(function () {
         Route::get('/', [MateriaController::class, 'index']);
-        Route::get('/select', [MateriaController::class, 'getMateriasForSelect']);
-        Route::get('/{id}', [MateriaController::class, 'show']);
         Route::post('/', [MateriaController::class, 'store']);
+        // Las rutas con parámetros {id} SIEMPRE al final
+        Route::get('/{id}', [MateriaController::class, 'show']);
         Route::put('/{id}', [MateriaController::class, 'update']);
         Route::delete('/{id}', [MateriaController::class, 'destroy']);
         Route::post('/{id}/reactivar', [MateriaController::class, 'reactivar']);
@@ -111,12 +162,9 @@ Route::middleware(['auth:sanctum', 'role:Administrador'])->group(function () {
         Route::put('/{id}', [TipoAulaController::class, 'update']);
     });
 
-    // Docentes - CRUD Completo (Solo Admin)
+    // Docentes - Operaciones de Escritura (Solo Admin)
     Route::prefix('/docentes')->group(function () {
-        Route::get('/', [DocenteController::class, 'index']);
         Route::post('/', [DocenteController::class, 'store']);
-        Route::get('/select', [DocenteController::class, 'getDocentesForSelect']);
-        Route::get('/{id}', [DocenteController::class, 'show']);
         Route::put('/{id}', [DocenteController::class, 'update']);
         Route::delete('/{id}', [DocenteController::class, 'destroy']);
         Route::post('/{id}/reactivar', [DocenteController::class, 'reactivar']);
@@ -131,33 +179,6 @@ Route::middleware(['auth:sanctum', 'role:Administrador'])->group(function () {
         Route::get('/', [BitacoraController::class, 'index']);
         Route::get('/report', [BitacoraController::class, 'getReport']);
     });
-});
-
-// ========== RUTAS PARA ADMINISTRADOR Y COORDINADOR ==========
-Route::middleware(['auth:sanctum', 'role:Administrador,Coordinador'])->group(function () {
-    
-    // Grupos - CRUD (Admin y Coordinador)
-    Route::prefix('/grupos')->group(function () {
-        Route::get('/', [GrupoController::class, 'index']);
-        Route::post('/', [GrupoController::class, 'store']);
-        Route::get('/select', [GrupoController::class, 'getGruposForSelect']);
-        Route::get('/{id}', [GrupoController::class, 'show']);
-        Route::put('/{id}', [GrupoController::class, 'update']);
-        Route::delete('/{id}', [GrupoController::class, 'destroy']);
-        Route::post('/{id}/reactivar', [GrupoController::class, 'reactivar']);
-    });
-
-    // Asignación de Docentes a Materia-Grupo (Admin y Coordinador)
-    Route::prefix('/asignaciones-docente')->group(function () {
-        Route::get('/', [AsignacionDocenteController::class, 'index']); // Listar asignaciones
-        Route::post('/', [AsignacionDocenteController::class, 'store']); // Crear asignación
-        Route::get('/{id}', [AsignacionDocenteController::class, 'show']); // Ver detalle de asignación
-        Route::put('/{id}', [AsignacionDocenteController::class, 'update']); // Actualizar horas asignadas
-        Route::delete('/{id}', [AsignacionDocenteController::class, 'destroy']); // Desactivar asignación
-    });
-
-    // Carga horaria de docentes (Admin y Coordinador)
-    Route::get('/docentes/{cod_docente}/carga-horaria', [AsignacionDocenteController::class, 'cargaHoraria']);
 });
 
 // RUTAS DE CATALOGO DIA-BLOQUEHORARIO-TIPOAULA
@@ -193,7 +214,6 @@ Route::middleware(['auth:sanctum', 'role:Administrador,Coordinador'])->group(fun
         ->middleware('role:Administrador,Coordinador,Autoridad');
 
 
-    
     //CU20 (Lado Admin/Coordinador) Revisión de justificaciones
     Route::prefix('/admin/justificaciones')->group(function () {
         // Listar todas las solicitudes pendientes
@@ -236,15 +256,11 @@ Route::middleware(['auth:sanctum', 'role:Coordinador,Autoridad'])->group(functio
     
     // Consulta de Materias
     Route::get('/materias/consulta', [MateriaController::class, 'index']);
-    Route::get('/materias/select/consulta', [MateriaController::class, 'getMateriasForSelect']);
+    Route::get('/materias/select/consulta', [MateriaController::class, 'getMateriasForSelect']); // Para Autoridad
     
     // Consulta de Aulas
     Route::get('/aulas/consulta', [AulaController::class, 'index']);
     Route::get('/aulas/select/consulta', [AulaController::class, 'getAulasForSelect']);
     // CU8: Disponibilidad ya definida en el grupo de Admin con permisos extendidos
-
-    // Consulta de Docentes
-    Route::get('/docentes/consulta', [DocenteController::class, 'index']);
-    Route::get('/docentes/select/consulta', [DocenteController::class, 'getDocentesForSelect']);
 
 });

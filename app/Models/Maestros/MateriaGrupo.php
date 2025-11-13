@@ -48,6 +48,25 @@ class MateriaGrupo extends Model
         return $this->belongsTo(Gestion::class, 'id_gestion');
     }
 
+    /**
+     * Relación con la tabla de asignación (la que usa este modelo).
+     */
+    public function asignacionDocente()
+    {
+        // Un MateriaGrupo puede tener UNA asignación (en esta lógica de negocio)
+        return $this->hasOne(\App\Models\Horarios\AsignacionDocente::class, 'id_materia_grupo');
+    }
+
+    /**
+     * Relación con la tabla de asignación, pero SOLO si está activa.
+     * Esto es lo que usaremos para filtrar.
+     */
+    public function asignacionDocenteActiva()
+    {
+        return $this->hasOne(\App\Models\Horarios\AsignacionDocente::class, 'id_materia_grupo')
+                   ->where('activo', true);
+    }
+
     // Scopes
     public function scopeActivos($query)
     {
