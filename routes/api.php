@@ -248,7 +248,7 @@ Route::middleware(['auth:sanctum', 'role:Docente'])->group(function () {
 
 
 // ========== RUTAS PARA COORDINADOR Y AUTORIDAD (Solo Lectura) ==========
-Route::middleware(['auth:sanctum', 'role:Coordinador,Autoridad'])->group(function () {
+Route::middleware(['auth:sanctum', 'role:Administrador,Coordinador,Autoridad'])->group(function () {
     
     // Consulta de Gestiones
     Route::get('/gestiones/consulta', [GestionController::class, 'index']);
@@ -265,6 +265,8 @@ Route::middleware(['auth:sanctum', 'role:Coordinador,Autoridad'])->group(functio
     // Consulta de Aulas
     Route::get('/aulas/consulta', [AulaController::class, 'index']);
     Route::get('/aulas/select/consulta', [AulaController::class, 'getAulasForSelect']);
-    // CU8: Disponibilidad ya definida en el grupo de Admin con permisos extendidos
+    
+    Route::get('/docentes/consulta', [DocenteController::class, 'index']);
+    Route::get('/docentes/select/consulta', [DocenteController::class, 'getDocentesForSelect']);
 
 });

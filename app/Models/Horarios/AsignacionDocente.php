@@ -36,7 +36,7 @@ class AsignacionDocente extends Model
     // Relaciones
     public function docente()
     {
-        return $this->belongsTo(Docente::class, 'id_docente', 'id_docente');
+        return $this->belongsTo(Docente::class, 'id_docente', 'cod_docente');
     }
 
     public function materiaGrupo()
@@ -64,7 +64,7 @@ class AsignacionDocente extends Model
 
     public function scopePorDocente($query, $codDocente)
     {
-        return $query->where('id_docente', $idDocente);  // id_docente es el campo en asignacion_docente
+        return $query->where('id_docente', $codDocente);  // id_docente es el campo en asignacion_docente
     }
 
     // Métodos de validación
@@ -74,7 +74,7 @@ class AsignacionDocente extends Model
      */
     public static function existeAsignacion($codDocente, $idMateriaGrupo): bool
     {
-        return self::where('id_docente', $idDocente)  // id_docente en tabla asignacion_docente
+        return self::where('id_docente', $codDocente)  // id_docente en tabla asignacion_docente
             ->where('id_materia_grupo', $idMateriaGrupo)
             ->where('activo', true)
             ->exists();
@@ -95,7 +95,7 @@ class AsignacionDocente extends Model
      */
     public static function obtenerHorasAsignadasDocente($codDocente, $idGestion): int
     {
-        return self::where('id_docente', $idDocente)  // id_docente en tabla asignacion_docente
+        return self::where('id_docente', $codDocente)  // id_docente en tabla asignacion_docente
             ->where('activo', true)
             ->whereHas('materiaGrupo', function($q) use ($idGestion) {
                 $q->where('id_gestion', $idGestion);

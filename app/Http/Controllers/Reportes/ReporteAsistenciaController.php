@@ -18,15 +18,15 @@ class ReporteAsistenciaController extends Controller
      */
     public function generarReporte(Request $request)
     {
-        // 1. VALIDACIÓN
+        // Validación
         $validator = Validator::make($request->all(), [
-            'id_gestion'     => 'required|integer|exists:gestion,id_gestion',
-            'id_docente'     => 'nullable|integer|exists:docente,cod_docente',
-            'id_materia'     => 'nullable|integer|exists:materia,id_materia',
-            'id_grupo'       => 'nullable|integer|exists:grupo,id_grupo',
-            'fecha_inicio'   => 'nullable|date',
-            'fecha_fin'      => 'nullable|date|after_or_equal:fecha_inicio',
-            'exportar'       => 'nullable|in:pdf,excel',
+            'id_gestion'   => 'required|integer|exists:gestion,id_gestion',
+            'id_docente'   => 'nullable|integer|exists:docente,cod_docente',
+            'id_materia'   => 'nullable|integer|exists:materia,id_materia',
+            'id_grupo'     => 'nullable|integer|exists:grupo,id_grupo',
+            'fecha_inicio' => 'nullable|date',
+            'fecha_fin'    => 'nullable|date|after_or_equal:fecha_inicio',
+            'exportar'     => 'nullable|in:pdf,excel',
         ]);
 
         if ($validator->fails()) {
@@ -38,10 +38,9 @@ class ReporteAsistenciaController extends Controller
         }
 
         try {
-            // 2. CONSTRUIR CONSULTA (filtros dinámicos)
+
             $query = $this->construirConsulta($request);
 
-            // 3. OBTENER ASISTENCIAS DETALLADAS
             $asistencias = $query->with([
                 'estado',
                 'asignacionDocente.docente.perfil',
@@ -54,7 +53,6 @@ class ReporteAsistenciaController extends Controller
             ->orderBy('hora_registro', 'desc')
             ->get();
 
-            // 4. SI NO EXISTEN REGISTROS
             if ($asistencias->isEmpty()) {
                 return response()->json([
                     'success' => false,
@@ -62,11 +60,9 @@ class ReporteAsistenciaController extends Controller
                 ], 404);
             }
 
-            // 5. ESTADÍSTICAS
             $estadisticas = $this->calcularEstadisticas($asistencias);
 
-
-            // 6. EXPORTAR PDF / EXCEL
+            // EXPORTACIÓN
             if ($request->filled('exportar')) {
 
                 $payload = [
@@ -75,25 +71,29 @@ class ReporteAsistenciaController extends Controller
                     'asistencias' => $asistencias
                 ];
 
+                // PDF
                 if ($request->exportar === 'pdf') {
+                    // Usamos la vista blade que ya existe
                     $pdf = Pdf::loadView('reportes.asistencia_pdf', $payload)
-                              ->setPaper('a4', 'landscape');
+                             ->setPaper('a4', 'landscape');
 
                     return $pdf->download('reporte_asistencia.pdf');
                 }
 
+                // EXCEL
                 if ($request->exportar === 'excel') {
+                    // Usamos la clase Export que ya existe
                     return Excel::download(
-                        new AsistenciaExport($asistencias),
+                        new AsistenciaExport($payload),
                         'reporte_asistencia.xlsx'
                     );
                 }
             }
 
-            // 7. RETORNO DINÁMICO EN JSON
+            // RESPUESTA JSON (DINÁMICA)
             return response()->json([
-                'success'          => true,
-                'message'          => 'Reporte generado correctamente',
+                'success'        => true,
+                'message'        => 'Reporte generado correctamente',
                 'filtros_aplicados'=> $request->all(),
                 'estadisticas'     => $estadisticas,
                 'data_detallada'   => $asistencias
@@ -108,7 +108,6 @@ class ReporteAsistenciaController extends Controller
             ], 500);
         }
     }
-
 
 
     /**
