@@ -40,6 +40,16 @@ use App\Http\Controllers\Sistema\BitacoraController;
 Route::get('/test', function () {
     return response()->json(['message' => 'API funcionando correctamente']);
 });
+// =====================
+// RUTAS DE CATÁLOGO (PÚBLICAS)
+// =====================
+// Estas deben ser públicas porque el frontend las usa antes de iniciar sesión.
+// Así evitas 401 y timeouts.
+Route::get('/dias/select', [DiaController::class, 'paraSelect']);
+Route::get('/bloques-horario/select', [BloqueHorarioController::class, 'paraSelect']);
+Route::get('/tipos-clase/select', [TipoClaseController::class, 'paraSelect']);
+Route::get('/aulas/select', [AulaController::class, 'getAulasForSelect']);
+Route ::get('/asignaciones-docente/select', [AsignacionDocenteController::class, 'paraSelect']);
 
 // ========== AUTENTICACIÓN (Públicas) ==========
 Route::prefix('/auth')->group(function () {
@@ -58,7 +68,7 @@ Route::middleware(['auth:sanctum', 'role:Administrador,Coordinador,Autoridad'])
 
 // ========== RUTAS PARA ADMINISTRADOR Y COORDINADOR (DEBEN IR ANTES DE SOLO ADMIN) ==========
 Route::middleware(['auth:sanctum', 'role:Administrador,Coordinador'])->group(function () {
-    
+
     // Dropdowns que Admin y Coordinador necesitan
     Route::get('/materias/select', [MateriaController::class, 'getMateriasForSelect']);
     Route::get('/semestres/select', [SemestreController::class, 'paraSelect']);
@@ -187,11 +197,6 @@ Route::middleware(['auth:sanctum', 'role:Administrador,Coordinador'])->group(fun
 
 // RUTAS DE CATALOGO DIA-BLOQUEHORARIO-TIPOAULA
 Route::middleware(['auth:sanctum', 'role:Administrador,Coordinador'])->group(function () {
-    // Catálogos para dropdowns
-    Route::get('/dias/select', [DiaController::class, 'paraSelect']);
-    Route::get('/bloques-horario/select', [BloqueHorarioController::class, 'paraSelect']);
-    Route::get('/tipos-clase/select', [TipoClaseController::class, 'paraSelect']);
-
     // CU6: Asignación Manual de Horarios
     Route::prefix('/horarios-clase')->group(function () {
         Route::get('/', [HorarioClaseController::class, 'index']);      // Listar

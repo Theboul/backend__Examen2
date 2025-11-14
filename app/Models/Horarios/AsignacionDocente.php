@@ -14,12 +14,12 @@ class AsignacionDocente extends Model
 
     protected $table = 'asignacion_docente';
     protected $primaryKey = 'id_asignacion_docente';
-    
+
     const CREATED_AT = 'fecha_asignacion';
     const UPDATED_AT = 'fecha_modificacion';
 
     protected $fillable = [
-        'id_docente',  // FK que referencia a docente.cod_docente
+        'id_docente',
         'id_materia_grupo',
         'id_estado',
         'hrs_asignadas',
@@ -33,7 +33,10 @@ class AsignacionDocente extends Model
         'fecha_modificacion' => 'datetime',
     ];
 
-    // Relaciones
+    // ===========================
+    //   RELACIONES CORREGIDAS
+    // ===========================
+
     public function docente()
     {
         return $this->belongsTo(Docente::class, 'id_docente', 'cod_docente');
@@ -49,7 +52,10 @@ class AsignacionDocente extends Model
         return $this->belongsTo(Estado::class, 'id_estado');
     }
 
-    // Scopes
+    // ===========================
+    //   SCOPES
+    // ===========================
+
     public function scopeActivos($query)
     {
         return $query->where('activo', true);
@@ -62,17 +68,16 @@ class AsignacionDocente extends Model
         });
     }
 
-    public function scopePorDocente($query, $codDocente)
+    public function scopePorDocente($query, $idDocente)
     {
         return $query->where('id_docente', $codDocente);  // id_docente es el campo en asignacion_docente
     }
 
-    // Métodos de validación
-    
-    /**
-     * Verificar si ya existe asignación del docente a ese materia-grupo
-     */
-    public static function existeAsignacion($codDocente, $idMateriaGrupo): bool
+    // ===========================
+    //   MÉTODOS AUXILIARES
+    // ===========================
+
+    public static function existeAsignacion($idDocente, $idMateriaGrupo): bool
     {
         return self::where('id_docente', $codDocente)  // id_docente en tabla asignacion_docente
             ->where('id_materia_grupo', $idMateriaGrupo)
@@ -80,9 +85,6 @@ class AsignacionDocente extends Model
             ->exists();
     }
 
-    /**
-     * Verificar si el materia-grupo ya tiene un docente asignado
-     */
     public static function materiaGrupoTieneDocente($idMateriaGrupo): bool
     {
         return self::where('id_materia_grupo', $idMateriaGrupo)
@@ -90,10 +92,7 @@ class AsignacionDocente extends Model
             ->exists();
     }
 
-    /**
-     * Obtener horas totales asignadas a un docente en una gestión
-     */
-    public static function obtenerHorasAsignadasDocente($codDocente, $idGestion): int
+    public static function obtenerHorasAsignadasDocente($idDocente, $idGestion): int
     {
         return self::where('id_docente', $codDocente)  // id_docente en tabla asignacion_docente
             ->where('activo', true)
@@ -103,25 +102,26 @@ class AsignacionDocente extends Model
             ->sum('hrs_asignadas');
     }
 
-    /**
-     * Verificar si el docente excedería la carga máxima con esta asignación
-     */
-    public static function excedeCargarMaxima($codDocente, $idGestion, $hrsNuevas): array
+    public static function excedeCargarMaxima($idDocente, $idGestion, $hrsNuevas): array
     {
-        $docente = Docente::with('tipoContrato')->find($codDocente);
-        
+        $docente = Docente::with('tipoContrato')->find($idDocente);
+
         if (!$docente || !$docente->tipoContrato) {
             return ['excede' => false, 'mensaje' => ''];
         }
 
-        $hrsActuales = self::obtenerHorasAsignadasDocente($codDocente, $idGestion);
+        $hrsActuales = self::obtenerHorasAsignadasDocente($idDocente, $idGestion);
         $hrsTotal = $hrsActuales + $hrsNuevas;
         $hrsMaximas = $docente->tipoContrato->hrs_maximas;
 
         if ($hrsTotal > $hrsMaximas) {
             return [
                 'excede' => true,
-                'mensaje' => "El docente excedería la carga máxima. Actual: {$hrsActuales}hrs, Nueva asignación: {$hrsNuevas}hrs, Total: {$hrsTotal}hrs, Máximo permitido: {$hrsMaximas}hrs"
+                'mensaje' => "El docente excedería la carga máxima. 
+                              Actual: {$hrsActuales}hrs, 
+                              Nueva: {$hrsNuevas}hrs, 
+                              Total: {$hrsTotal}hrs, 
+                              Máximo permitido: {$hrsMaximas}hrs"
             ];
         }
 
