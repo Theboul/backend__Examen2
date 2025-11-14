@@ -447,7 +447,7 @@ class AulaController extends Controller
             }
 
             // Consultar aulas ocupadas en ese día y bloque
-            $aulasOcupadas = \App\Models\HorarioClase::where('id_dia', $idDia)
+            $aulasOcupadas = \App\Models\Horarios\HorarioClase::where('id_dia', $idDia)
                 ->where('id_bloque_horario', $idBloque)
                 ->where('activo', true)
                 ->pluck('id_aula')

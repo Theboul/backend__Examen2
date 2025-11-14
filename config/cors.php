@@ -24,7 +24,7 @@ return [
     'allowed_origins' => [
         'http://localhost:5173',              // Desarrollo local
         'http://localhost:3000',              // Por si usas otro puerto
-        'https://gestion-academica-nu.vercel.app/', // Producción Vercel
+        'https://gestion-academicas.vercel.app/', // Producción Vercel
     ],
 
     'allowed_origins_patterns' => [

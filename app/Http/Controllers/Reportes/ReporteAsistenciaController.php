@@ -5,42 +5,43 @@ namespace App\Http\Controllers\Reportes;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Horarios\Asistencia;
-use App\Models\Sistema\Estado;
 use Illuminate\Support\Facades\Validator;
 
 use Barryvdh\DomPDF\Facade\Pdf;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\AsistenciaExport;
 
-
 class ReporteAsistenciaController extends Controller
 {
     /**
-     * CU11: Generar Reporte de Asistencia
-     * GET /api/reportes/asistencia
+     * CU11: Generar Reporte (Dinámico, PDF, Excel)
      */
     public function generarReporte(Request $request)
     {
-        // --- 1. VALIDACIÓN DE FILTROS ---
+        // 1. VALIDACIÓN
         $validator = Validator::make($request->all(), [
-            'id_gestion' => 'required|integer|exists:gestion,id_gestion',
-            'fecha_inicio' => 'nullable|date',
-            'fecha_fin' => 'nullable|date|after_or_equal:fecha_inicio',
-            'id_docente' => 'nullable|integer|exists:docente,cod_docente',
-            'id_materia' => 'nullable|integer|exists:materia,id_materia',
-            'id_grupo' => 'nullable|integer|exists:grupo,id_grupo',
-            'exportar' => 'nullable|in:pdf,excel', // El switch dinámico/estático
+            'id_gestion'     => 'required|integer|exists:gestion,id_gestion',
+            'id_docente'     => 'nullable|integer|exists:docente,cod_docente',
+            'id_materia'     => 'nullable|integer|exists:materia,id_materia',
+            'id_grupo'       => 'nullable|integer|exists:grupo,id_grupo',
+            'fecha_inicio'   => 'nullable|date',
+            'fecha_fin'      => 'nullable|date|after_or_equal:fecha_inicio',
+            'exportar'       => 'nullable|in:pdf,excel',
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['success' => false, 'message' => 'Filtros inválidos', 'errors' => $validator->errors()], 422);
+            return response()->json([
+                'success' => false,
+                'message' => 'Filtros inválidos',
+                'errors'  => $validator->errors()
+            ], 422);
         }
 
         try {
-            // --- 2. CONSTRUCCIÓN DE LA CONSULTA BASE ---
-            $query = $this->construirConsultaReporte($request);
+            // 2. CONSTRUIR CONSULTA (filtros dinámicos)
+            $query = $this->construirConsulta($request);
 
-            // --- 3. OBTENER DATOS DETALLADOS ---
+            // 3. OBTENER ASISTENCIAS DETALLADAS
             $asistencias = $query->with([
                 'estado',
                 'asignacionDocente.docente.perfil',
@@ -53,85 +54,99 @@ class ReporteAsistenciaController extends Controller
             ->orderBy('hora_registro', 'desc')
             ->get();
 
+            // 4. SI NO EXISTEN REGISTROS
             if ($asistencias->isEmpty()) {
-                return response()->json(['success' => false, 'message' => 'Sin Registros de Asistencia para los filtros seleccionados'], 404);
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Sin registros de asistencia para los filtros seleccionados'
+                ], 404);
             }
 
-            // --- 4. CALCULAR ESTADÍSTICAS ---
+            // 5. ESTADÍSTICAS
             $estadisticas = $this->calcularEstadisticas($asistencias);
 
-            // --- 5. DECIDIR EL FORMATO DE SALIDA ---
+
+            // 6. EXPORTAR PDF / EXCEL
             if ($request->filled('exportar')) {
-                
-                // Preparamos los datos para la vista estática
-                $datosReporte = [
-                    'filtros' => $request->all(), // Para mostrar en la cabecera del reporte
-                    'estadisticas' => $estadisticas,
+
+                $payload = [
+                    'filtros'     => $request->all(),
+                    'estadisticas'=> $estadisticas,
                     'asistencias' => $asistencias
                 ];
 
-                if ($request->exportar == 'pdf') {
-                    // CÓDIGO PDF (ACTUALIZADO)
-                    $pdf = Pdf::loadView('reportes.asistencia_pdf', $datosReporte)
-                             ->setPaper('a4', 'landscape'); // Horizontal para tablas
-                    
+                if ($request->exportar === 'pdf') {
+                    $pdf = Pdf::loadView('reportes.asistencia_pdf', $payload)
+                              ->setPaper('a4', 'landscape');
+
                     return $pdf->download('reporte_asistencia.pdf');
                 }
-                
-                if ($request->exportar == 'excel') {
-                    // CÓDIGO EXCEL (ACTUALIZADO)
-                    return Excel::download(new AsistenciaExport($datosReporte), 'reporte_asistencia.xlsx');
+
+                if ($request->exportar === 'excel') {
+                    return Excel::download(
+                        new AsistenciaExport($asistencias),
+                        'reporte_asistencia.xlsx'
+                    );
                 }
             }
-            
-            // SALIDA DINÁMICA (JSON para la pantalla)
+
+            // 7. RETORNO DINÁMICO EN JSON
             return response()->json([
-                'success' => true,
-                'message' => 'Reporte generado exitosamente',
-                'filtros_aplicados' => $request->all(),
-                'estadisticas' => $estadisticas,
-                'data_detallada' => $asistencias // Los registros detallados para la grilla
-            ], 200);
+                'success'          => true,
+                'message'          => 'Reporte generado correctamente',
+                'filtros_aplicados'=> $request->all(),
+                'estadisticas'     => $estadisticas,
+                'data_detallada'   => $asistencias
+            ]);
 
         } catch (\Exception $e) {
-            return response()->json(['success' => false, 'message' => 'Error al generar el reporte', 'error' => $e->getMessage()], 500);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Error inesperado',
+                'error'   => $e->getMessage()
+            ], 500);
         }
     }
 
+
+
     /**
-     * Construye la consulta base aplicando los filtros dinámicos.
-     * (Esta función no cambia, ya era correcta)
+     * -----------------  CONSULTA DINÁMICA  -----------------
      */
-    private function construirConsultaReporte(Request $request)
+    private function construirConsulta(Request $request)
     {
         $query = Asistencia::query();
 
-        // FILTRO OBLIGATORIO: GESTIÓN
+        // Gestión obligatoria
         $query->whereHas('asignacionDocente.materiaGrupo', function ($q) use ($request) {
             $q->where('id_gestion', $request->id_gestion);
         });
 
-        // FILTRO OPCIONAL: RANGO DE FECHAS
+        // Fechas
         if ($request->filled('fecha_inicio') && $request->filled('fecha_fin')) {
-            $query->whereBetween('fecha_registro', [$request->fecha_inicio, $request->fecha_fin]);
+            $query->whereBetween('fecha_registro', [
+                $request->fecha_inicio,
+                $request->fecha_fin
+            ]);
         }
 
-        // FILTRO OPCIONAL: DOCENTE
-        if ($request->filled('id_docente')) {
+        // Docente
+        if ($request->id_docente) {
             $query->whereHas('asignacionDocente', function ($q) use ($request) {
                 $q->where('id_docente', $request->id_docente);
             });
         }
 
-        // FILTRO OPCIONAL: MATERIA
-        if ($request->filled('id_materia')) {
+        // Materia
+        if ($request->id_materia) {
             $query->whereHas('asignacionDocente.materiaGrupo', function ($q) use ($request) {
                 $q->where('id_materia', $request->id_materia);
             });
         }
 
-        // FILTRO OPCIONAL: GRUPO
-        if ($request->filled('id_grupo')) {
+        // Grupo
+        if ($request->id_grupo) {
             $query->whereHas('asignacionDocente.materiaGrupo', function ($q) use ($request) {
                 $q->where('id_grupo', $request->id_grupo);
             });
@@ -140,34 +155,34 @@ class ReporteAsistenciaController extends Controller
         return $query;
     }
 
+
+
     /**
-     * Calcula los totales y porcentajes para el reporte.
-     * (Esta función no cambia, ya era correcta)
+     * -----------------  ESTADÍSTICAS  -----------------
      */
     private function calcularEstadisticas($asistencias)
     {
-        $totalRegistros = $asistencias->count();
-        if ($totalRegistros == 0) {
+        $total = $asistencias->count();
+        if ($total == 0) {
             return ['total_clases_registradas' => 0];
         }
 
-        $conteoPorEstado = $asistencias->groupBy('estado.nombre')->map->count();
-
-        $presente = $conteoPorEstado->get('Presente', 0);
-        $tardanza = $conteoPorEstado->get('Tardanza', 0);
-        $ausente = $conteoPorEstado->get('Ausente', 0);
-        $justificado = $conteoPorEstado->get('Ausente Justificado', 0);
-
-        $totalAsistenciasEfectivas = $presente + $tardanza + $justificado;
+        $conteo = $asistencias->groupBy('estado.nombre')->map->count();
 
         return [
-            'total_clases_registradas' => $totalRegistros,
-            'total_presente' => $presente,
-            'total_tardanza' => $tardanza,
-            'total_ausente_injustificado' => $ausente,
-            'total_ausente_justificado' => $justificado,
-            'porcentaje_asistencia_efectiva' => round(($totalAsistenciasEfectivas / $totalRegistros) * 100, 2),
-            'porcentaje_ausentismo_real' => round(($ausente / $totalRegistros) * 100, 2),
+            'total_clases_registradas'   => $total,
+            'total_presente'             => $conteo->get('Presente', 0),
+            'total_tardanza'             => $conteo->get('Tardanza', 0),
+            'total_ausente_injustificado'=> $conteo->get('Ausente', 0),
+            'total_ausente_justificado'  => $conteo->get('Ausente Justificado', 0),
+            'porcentaje_asistencia_efectiva' => round(
+                (($conteo->get('Presente', 0)
+                +$conteo->get('Tardanza', 0)
+                +$conteo->get('Ausente Justificado', 0)) / $total) * 100, 2
+            ),
+            'porcentaje_ausentismo_real' => round(
+                ($conteo->get('Ausente', 0) / $total) * 100, 2
+            )
         ];
     }
 }

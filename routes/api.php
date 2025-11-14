@@ -19,6 +19,7 @@ use App\Http\Controllers\Horarios\BloqueHorarioController;
 use App\Http\Controllers\Maestros\TipoClaseController;
 use App\Http\Controllers\Horarios\HorarioClaseController;
 use App\Http\Controllers\Horarios\AsistenciaController;
+use App\Http\Controllers\Reportes\ReporteAsistenciaController;
 use App\Http\Controllers\Horarios\JustificacionController;
 use App\Http\Controllers\Horarios\RevisionJustificacionController;
 use App\Http\Controllers\Sistema\BitacoraController;
@@ -51,6 +52,9 @@ Route::prefix('/auth')->group(function () {
         Route::post('/toggle-activo/{id}', [AuthController::class, 'toggleActivoCuenta'])->middleware('role:Administrador');
     });
 });
+
+Route::middleware(['auth:sanctum', 'role:Administrador,Coordinador,Autoridad'])
+    ->get('/reportes/asistencia', [ReporteAsistenciaController::class, 'generarReporte']);
 
 // ========== RUTAS PARA ADMINISTRADOR Y COORDINADOR (DEBEN IR ANTES DE SOLO ADMIN) ==========
 Route::middleware(['auth:sanctum', 'role:Administrador,Coordinador'])->group(function () {
@@ -102,7 +106,7 @@ Route::middleware(['auth:sanctum', 'role:Administrador,Coordinador'])->group(fun
 });
 
 // ========== RUTAS PARA ADMINISTRADOR ==========
-Route::middleware(['auth:sanctum', 'role:Administrador'])->group(function () {
+Route::middleware(['auth:sanctum', 'role:Administrador,Coordinador'])->group(function () {
     
     // Gestiones - CRUD Completo (Solo Admin)
     Route::prefix('/gestiones')->group(function () {

@@ -19,7 +19,6 @@ class Grupo extends Model
     const UPDATED_AT = 'fecha_modificacion';
 
     protected $fillable = [
-        'id_materia',
         'nombre',
         'descripcion',
         'activo',
@@ -38,11 +37,8 @@ class Grupo extends Model
     ];
 
     // Relaciones
-    public function materia()
-    {
-        return $this->belongsTo(Materia::class, 'id_materia');
-    }
-
+    
+    // Relación con MateriaGrupo (tabla intermedia)
     public function materiaGrupos()
     {
         return $this->hasMany(MateriaGrupo::class, 'id_grupo');
