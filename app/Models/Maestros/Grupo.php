@@ -5,7 +5,7 @@ namespace App\Models\Maestros;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use App\Models\Maestros\Materia;
-use App\Models\Maestros\MateriaGrupo;
+
 
 class Grupo extends Model
 {
@@ -19,7 +19,6 @@ class Grupo extends Model
     const UPDATED_AT = 'fecha_modificacion';
 
     protected $fillable = [
-        'id_materia',
         'nombre',
         'descripcion',
         'activo',
@@ -38,11 +37,7 @@ class Grupo extends Model
     ];
 
     // Relaciones
-    public function materia()
-    {
-        return $this->belongsTo(Materia::class, 'id_materia');
-    }
-
+  
     public function materiaGrupos()
     {
         return $this->hasMany(MateriaGrupo::class, 'id_grupo');
