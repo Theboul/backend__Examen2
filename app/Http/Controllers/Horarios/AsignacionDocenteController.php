@@ -199,4 +199,44 @@ class AsignacionDocenteController extends Controller
             ], 500);
       }
     }
+    public function paraSelect() {
+    try {
+        $items = AsignacionDocente::with([
+            'docente.perfil',
+            'materiaGrupo.materia',
+            'materiaGrupo.grupo'
+        ])
+        ->where('activo', true)
+        ->get()
+        ->map(function ($a) {
+            return [
+                'id_asignacion_docente' => $a->id_asignacion_docente,
+                'docente' => $a->docente->perfil->nombre_completo ?? 'Sin nombre',
+                'materia' => $a->materiaGrupo->materia->nombre ?? 'Sin materia',
+                'grupo'   => $a->materiaGrupo->grupo->nombre ?? 'Sin grupo',
+                'label' => ($a->docente->perfil->nombre_completo ?? '')
+                            . ' - '
+                            . ($a->materiaGrupo->materia->nombre ?? '')
+                            . ' ('
+                            . ($a->materiaGrupo->grupo->nombre ?? '')
+                            . ')'
+            ];
+        });
+
+        return response()->json([
+            'success' => true,
+            'data' => $items
+        ]);
+
+    } catch (\Exception $e) {
+        \Log::error("ERROR EN paraSelect ASIGNACION-DOCENTE", [
+            "error" => $e->getMessage()
+        ]);
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Error al obtener asignaciones'
+        ], 500);
+    }
+}
 }
